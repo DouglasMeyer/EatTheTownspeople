@@ -81,7 +81,7 @@ var input = (function(){
 
 
 function initGame(input, gameState){}
-var speedLimit = 200; // blocks per second
+var speedLimit = 30; // blocks per second
 function moveMonster(timeDelta, input, gameState){
   if (!input.length) return;
   var movingUp    = input.indexOf('Up'   ) !== -1,
@@ -178,8 +178,18 @@ var output = (function outputInit(){
   world.addChild( townspeopleContainer = new TownspeopleContainer() );
   world.addChild( monsterContainer = new MonsterContainer() );
   var renderer = PIXI.autoDetectRenderer(document.body.clientWidth, document.body.clientHeight);
+  var scale = Math.max(
+    document.body.clientWidth  / 400,
+    document.body.clientHeight / 300
+  );
+  stage.scale = new PIXI.Point(scale, scale);
   addEventListener('resize', function onWindowResize(){
     renderer.resize(document.body.clientWidth, document.body.clientHeight);
+    var scale = Math.max(
+      document.body.clientWidth  / 400,
+      document.body.clientHeight / 300
+    );
+    stage.scale = new PIXI.Point(scale, scale);
     renderer.render(stage);
   });
   renderer.render(stage);
@@ -194,8 +204,8 @@ var output = (function outputInit(){
     monsterContainer.setMonster( gameState.monster );
     townspeopleContainer.setTownspeople( gameState.townspeople );
 
-    //world.position.x = renderer.width  / 2 - gameState.monster.x;
-    //world.position.y = renderer.height / 2 - gameState.monster.y;
+    world.x = renderer.width  / stage.scale.x / 2 - gameState.monster.x;
+    world.y = renderer.height / stage.scale.y / 2 - gameState.monster.y;
 
     renderer.render(stage);
     lastGameState = gameState;
