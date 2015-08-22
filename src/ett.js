@@ -93,11 +93,20 @@ function moveMonster(timeDelta, input, gameState){
         ].reduce(function(c,b){ return c + (b?1:0); }, 0),
       speed = (timeDelta / speedLimit) / Math.pow(movements, 0.5),
       dx = 0,
-      dy = 0;
+      dy = 0,
+      x = gameState.monster.x,
+      y = gameState.monster.y;
   if (movingUp   ) dy -= speed;
   if (movingDown ) dy += speed;
   if (movingLeft ) dx -= speed;
   if (movingRight) dx += speed;
+  x += dx;
+  y += dy;
+
+  if (gameState.obstacles.some(function(obstacle){
+    return obstacle.contains(x,y);
+  })) return;
+
   return extend({}, gameState, {
     monster: extend({}, gameState.monster, {
       x: gameState.monster.x + dx,
@@ -105,7 +114,37 @@ function moveMonster(timeDelta, input, gameState){
     })
   });
 }
-function eatTownspeople(timeDelta, gameState){}
+function eatTownspeople(timeDelta, gameState){
+  var monster = gameState.monster;
+  if (monster.chewing) {
+    return extend({}, gameState, {
+      monster: extend({}, monster, {
+        chewing: monster.chewing - 1
+      })
+    });
+  }
+  var townspeopleDistances = gameState.townspeople.reduce(function(tpDistances, townsperson){
+    tpDistances[townsperson] = Math.pow(
+      Math.pow(townsperson.x - monster.x, 2) +
+      Math.pow(townsperson.y - monster.y, 2)
+    , 0.5);
+    return tpDistances;
+  }, new WeakMap);
+  var closestTownsperson = gameState.townspeople.sort(function(tp1, tp2){
+    return townspeopleDistances[tp1] - townspeopleDistances[tp2];
+  })[0];
+  //FIXME: magic number 5, monster's size.
+  if (closestTownsperson && townspeopleDistances[closestTownsperson] < 5){
+    return extend({}, gameState, {
+      monster: extend({}, monster, {
+        chewing: 10 //FIXME: magic number 10, monster's chewing time
+      }),
+      townspeople: gameState.townspeople.filter(function(townsperson){
+        return townsperson !== closestTownsperson
+      })
+    });
+  }
+}
 function moveTownspeople(timeDelta, gameState){}
 
 function update(timeDelta, input, gameState){
