@@ -1,0 +1,45 @@
+Eat The Townspeople
+
+You are a monster in a medieval town, so what do you do? Eat the townspeople.
+
+
+Townspeople will flee when they see a monster, but if they form a mob they can
+kill it. Try to pick them off one at a time. If you get surrounded, you can roar
+to scare them off; but everyone will know where you are.
+
+
+
+ 
+Map:
+  Black background with light box buildings. Roads/Buildings/Layout is randomly
+  generated. Monster is placed randomly. Townspeople are placed randomly, but
+  not too close to monster.
+Input:
+  WASD or Arrows
+  Space to lunge
+  Shift to roar
+Gameplay:
+  There is ~3s cooldown to eating townspeople.
+  You are faster than townspeople.
+  If a townsperson is "on" you, they slow you down.
+  If too many townspeople are "on" you, you are killed.
+AI:
+  If you see the monster:
+    If there are x townspeople within y:
+      walk towards the monster
+    Else If you are within x of monster:
+      run away from monster
+    Else
+      walk towards monster
+  Else If you think you know where a monster is
+    walk there
+  Else
+    walk away from townspeople (find the monster).
+
+
+
+
+
+
+
+vim: linebreak textwidth=80 spell
