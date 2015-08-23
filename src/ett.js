@@ -33,6 +33,7 @@ var tick = (function(){
 var initialGameState = {
   monster: { x: 5, y: 5, chewing: 0, roaring: 0 },
   townspeople: [
+    //{ x: 50, y: 50 },//, moveTo: { x: 0, y: 0 } }
   ],
   obstacles: [
     new PIXI.Rectangle(10, 10, 100, 20), // x y w h
@@ -267,6 +268,8 @@ var output = (function outputInit(){
   function HudContainer(){
     PIXI.Container.call(this);
     this.addChild( this.chewing = new PIXI.Text('Chewing: 0', { font: '10px Arial', fill: 0xDDDDDD }) );
+    //this.addChild( window.log = new PIXI.Text('log', { font: '6px Arial', fill: 0xDDDDDD }) );
+    //window.log.position = { x: 0, y: 100 };
   }
   HudContainer.prototype = Object.create(PIXI.Container.prototype);
   HudContainer.prototype.constructor = HudContainer;
