@@ -33,10 +33,10 @@ var tick = (function(){
 var initialGameState = {
   monster: { x: 5, y: 5, chewing: 0, roaring: 0 },
   townspeople: [
-    //{ x: 50, y: 50 },//, moveTo: { x: 0, y: 0 } }
+    //{ x: 50, y: 50, distanceFromMonster: 50 },//, moveTo: { x: 0, y: 0 } }
   ],
   obstacles: [
-    new PIXI.Rectangle(10, 10, 100, 20), // x y w h
+    new PIXI.Rectangle(20, 20, 100, 20), // x y w h
   ],
   map: {
     width: 400,
@@ -130,6 +130,30 @@ function initGame(input, gameState){
   });
 }
 
+//NOTE: this could be optimized by not updating (every time) townspeople who are far away, or storing position separate from monster/townsperson
+var lastMonster, townspeopleDistances;
+function updateDistances(gameState){
+  if (gameState.monster !== lastMonster) townspeopleDistances = new WeakMap;
+
+  var anyTownspersonUpdated = false,
+      newTownspeople = gameState.townspeople.map(function(townsperson){
+        if (townspeopleDistances.get(townsperson)) return townsperson;
+        var distance = Math.pow(
+          Math.pow(townsperson.x - gameState.monster.x, 2) +
+          Math.pow(townsperson.y - gameState.monster.y, 2)
+        , 0.5);
+        townspeopleDistances.set(townsperson, distance);
+        anyTownspersonUpdated = true;
+        return extend({}, townsperson, {
+          distanceFromMonster: distance
+        });
+      });
+  if (!anyTownspersonUpdated) return;
+  return extend({}, gameState, {
+    townspeople: newTownspeople
+  });
+}
+
 var speedLimit = 20; //FIXME: magic number, monster movement speed
 function moveMonster(timeDelta, input, gameState){
   if (!input.actions.length) return;
@@ -140,7 +164,7 @@ function moveMonster(timeDelta, input, gameState){
       movements = [
           movingUp, movingDown, movingLeft, movingRight
         ].reduce(function(c,b){ return c + (b?1:0); }, 0),
-      speed = (timeDelta / speedLimit) / Math.pow(movements, 0.5),
+      speed = (timeDelta / (speedLimit + gameState.townspeople.filter(function(tp){ return tp.distanceFromMonster < 10; }).length * 5 )) / Math.pow(movements, 0.5), //FIXME: magic number
       dx = 0,
       dy = 0,
       x = gameState.monster.x,
@@ -153,6 +177,11 @@ function moveMonster(timeDelta, input, gameState){
   x += dx;
   y += dy;
 
+  if (
+    x < 0 || y < 0 ||
+    x >= gameState.map.width ||
+    y >= gameState.map.height
+  ) return;
   if (gameState.obstacles.some(function(obstacle){
     return obstacle.contains(x,y);
   })) return;
@@ -175,18 +204,12 @@ function eatTownspeople(timeDelta, gameState){
       })
     });
   }
-  var townspeopleDistances = gameState.townspeople.reduce(function(tpDistances, townsperson){
-    tpDistances.set(townsperson, Math.pow(
-      Math.pow(townsperson.x - monster.x, 2) +
-      Math.pow(townsperson.y - monster.y, 2)
-    , 0.5));
-    return tpDistances;
-  }, new WeakMap);
   var closestTownsperson = gameState.townspeople.sort(function(tp1, tp2){
-    return townspeopleDistances.get(tp1) - townspeopleDistances.get(tp2);
+    return tp1.distanceFromMonster - tp2.distanceFromMonster;
   })[0];
+//log.text = JSON.stringify(closestTownsperson);
   //FIXME: magic number 5, monster's size.
-  if (closestTownsperson && townspeopleDistances.get(closestTownsperson) < 5){
+  if (closestTownsperson && closestTownsperson.distanceFromMonster < 5){
     return extend({}, gameState, {
       monster: extend({}, monster, {
         chewing: 5 //FIXME: magic number 10, monster's chewing time
@@ -201,6 +224,17 @@ function moveTownspeople(timeDelta, gameState){
   if (!gameState.townspeople.length) return;
   var newTownspeople = gameState.townspeople.map(function(townsperson){
     var moveTo = townsperson.moveTo;
+    if (townsperson.distanceFromMonster < 200){
+      var dx = (gameState.monster.x - townsperson.x) / townsperson.distanceFromMonster,
+          dy = (gameState.monster.y - townsperson.y) / townsperson.distanceFromMonster;
+      for (var distance = 1; distance < townsperson.distanceFromMonster; distance++){
+        if (gameState.obstacles.some(function(obstacle){ return obstacle.contains(townsperson.x+dx*distance, townsperson.y+dy*distance); })) break;
+      }
+      if (distance >= townsperson.distanceFromMonster) moveTo = {
+        x: gameState.monster.x,
+        y: gameState.monster.y
+      };
+    }
     if (!moveTo || (moveTo.x === townsperson.x && moveTo.y === townsperson.y)){
       moveTo = {
         x: Math.floor(Math.random() * gameState.map.width),
@@ -235,13 +269,18 @@ function moveTownspeople(timeDelta, gameState){
   });
 }
 
+function attackMonster(timeDelta, gameState){
+}
+
 function update(timeDelta, input, gameState){
   return [
     setWindowSize.bind(null, input),
     initGame.bind(null, input),
-    moveMonster.bind(null, timeDelta, input),
+    updateDistances.bind(null),
     eatTownspeople.bind(null, timeDelta),
-    moveTownspeople.bind(null, timeDelta)
+    attackMonster.bind(null, timeDelta),
+    moveMonster.bind(null, timeDelta, input),
+    moveTownspeople.bind(null, timeDelta),
   ].reduce(function updateReduceChanges(gameState, f){ return f(gameState) || gameState; }, gameState);
 }
 
@@ -311,8 +350,8 @@ var output = (function outputInit(){
   function HudContainer(){
     PIXI.Container.call(this);
     this.addChild( this.chewing = new PIXI.Text('Chewing: 0', { font: '10px Arial', fill: 0xDDDDDD }) );
-    //this.addChild( window.log = new PIXI.Text('log', { font: '6px Arial', fill: 0xDDDDDD }) );
-    //window.log.position = { x: 0, y: 100 };
+//this.addChild( window.log = new PIXI.Text('log', { font: '10px Arial', fill: 0xDDDDDD }) );
+//window.log.position = { x: 0, y: 100 };
   }
   HudContainer.prototype = Object.create(PIXI.Container.prototype);
   HudContainer.prototype.constructor = HudContainer;
