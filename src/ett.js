@@ -37,7 +37,12 @@ var initialGameState = {
   ],
   obstacles: [
     new PIXI.Rectangle(10, 10, 100, 20), // x y w h
-  ]
+  ],
+  map: {
+    width: 400,
+    height: 300
+  },
+  window: {}
 };
 var gameState = initialGameState;
 
@@ -49,6 +54,10 @@ tick(function gameTick(timeDelta){
 
 var input = (function(){
   var actions = [],
+      window = {
+        width: document.body.clientWidth,
+        height: document.body.clientHeight
+      },
       keyMappings = {
         'Up':    'Up',    'U+0057': 'Up',    // W
         'Left':  'Left',  'U+0041': 'Left',  // A
@@ -72,13 +81,32 @@ var input = (function(){
   }
   document.body.addEventListener('keydown', onKeyDown);
   document.body.addEventListener('keyup',   onKeyUp);
+  addEventListener('resize', function(){
+    window.width  = document.body.clientWidth;
+    window.height = document.body.clientHeight;
+  });
 
   return {
-    get: function(){ return actions; }
+    get: function(){
+      return { actions: actions, window: window };
+    }
   };
 })();
 
 
+
+function setWindowSize(input, gameState){
+  if (
+    input.window.width  === gameState.window.width &&
+    input.window.height === gameState.window.height
+  ) return;
+  return extend({}, gameState, {
+    window: {
+      width:  input.window.width,
+      height: input.window.height
+    }
+  });
+}
 
 function initGame(input, gameState){
   if (gameState.townspeople.length) return;
@@ -88,8 +116,8 @@ function initGame(input, gameState){
     while (!x || !y || gameState.obstacles.some(function(obstacle){
       return obstacle.contains(x,y);
     })){
-      x = Math.floor(Math.random() * 400); //FIXME magic numbers, map size
-      y = Math.floor(Math.random() * 300);
+      x = Math.floor(Math.random() * gameState.map.width);
+      y = Math.floor(Math.random() * gameState.map.height);
     }
     townspeople.push({
       x: x,
@@ -104,11 +132,11 @@ function initGame(input, gameState){
 
 var speedLimit = 20; //FIXME: magic number, monster movement speed
 function moveMonster(timeDelta, input, gameState){
-  if (!input.length) return;
-  var movingUp    = input.indexOf('Up'   ) !== -1,
-      movingDown  = input.indexOf('Down' ) !== -1,
-      movingLeft  = input.indexOf('Left' ) !== -1,
-      movingRight = input.indexOf('Right') !== -1,
+  if (!input.actions.length) return;
+  var movingUp    = input.actions.indexOf('Up'   ) !== -1,
+      movingDown  = input.actions.indexOf('Down' ) !== -1,
+      movingLeft  = input.actions.indexOf('Left' ) !== -1,
+      movingRight = input.actions.indexOf('Right') !== -1,
       movements = [
           movingUp, movingDown, movingLeft, movingRight
         ].reduce(function(c,b){ return c + (b?1:0); }, 0),
@@ -161,7 +189,7 @@ function eatTownspeople(timeDelta, gameState){
   if (closestTownsperson && townspeopleDistances.get(closestTownsperson) < 5){
     return extend({}, gameState, {
       monster: extend({}, monster, {
-        chewing: 10 //FIXME: magic number 10, monster's chewing time
+        chewing: 5 //FIXME: magic number 10, monster's chewing time
       }),
       townspeople: gameState.townspeople.filter(function(townsperson){
         return townsperson !== closestTownsperson
@@ -175,8 +203,8 @@ function moveTownspeople(timeDelta, gameState){
     var moveTo = townsperson.moveTo;
     if (!moveTo || (moveTo.x === townsperson.x && moveTo.y === townsperson.y)){
       moveTo = {
-        x: Math.floor(Math.random() * 400), //FIXME magic numbers, map size
-        y: Math.floor(Math.random() * 300)
+        x: Math.floor(Math.random() * gameState.map.width),
+        y: Math.floor(Math.random() * gameState.map.height)
       };
     }
     var dx = moveTo.x - townsperson.x,
@@ -209,6 +237,7 @@ function moveTownspeople(timeDelta, gameState){
 
 function update(timeDelta, input, gameState){
   return [
+    setWindowSize.bind(null, input),
     initGame.bind(null, input),
     moveMonster.bind(null, timeDelta, input),
     eatTownspeople.bind(null, timeDelta),
@@ -265,6 +294,20 @@ var output = (function outputInit(){
     }, this);
   };
 
+
+  function BoarderContainer(){
+    PIXI.Graphics.call(this);
+  }
+  BoarderContainer.prototype = Object.create(PIXI.Graphics.prototype);
+  BoarderContainer.prototype.constructor = BoarderContainer;
+  BoarderContainer.prototype.setGameState = function setGameState(gameState){
+    this.clear();
+    var color = 0x333333;
+    this.lineStyle( 1, color, 1 );
+    this.drawRect(0,0,gameState.map.width,gameState.map.height);
+  };
+
+
   function HudContainer(){
     PIXI.Container.call(this);
     this.addChild( this.chewing = new PIXI.Text('Chewing: 0', { font: '10px Arial', fill: 0xDDDDDD }) );
@@ -280,35 +323,40 @@ var output = (function outputInit(){
 
   var stage,
       world, hudContainer,
-      obstaclesContainer, townspeopleContainer, monsterContainer;
+      boarderContainer, obstaclesContainer, townspeopleContainer, monsterContainer;
   PIXI.DEFAULT_RENDER_OPTIONS.backgroundColor = 0x111111;
   stage = new PIXI.Container();
   stage.addChild( world = new PIXI.Container() );
   stage.addChild( hudContainer = new HudContainer() );
+  world.addChild( boarderContainer = new BoarderContainer() );
   world.addChild( obstaclesContainer = new ObstaclesContainer() );
   world.addChild( townspeopleContainer = new TownspeopleContainer() );
   world.addChild( monsterContainer = new MonsterContainer() );
   var renderer = PIXI.autoDetectRenderer();
-  function onWindowResize(){
-    renderer.resize(document.body.clientWidth, document.body.clientHeight);
-    var scale = Math.max(
-      document.body.clientWidth  / 400,
-      document.body.clientHeight / 300
-    );
-    stage.scale = new PIXI.Point(scale, scale);
-    renderer.render(stage);
-  }
-  addEventListener('resize', onWindowResize);
-  onWindowResize();
   renderer.render(stage);
   document.body.appendChild(renderer.view);
 
+  var lastMap, lastWindow;
+  function resize(gameState){
+    if (gameState.map === lastMap && gameState.window === lastWindow) return;
+    lastMap = gameState.map;
+    lastWindow = gameState.window;
+
+    renderer.resize(gameState.window.width, gameState.window.height);
+    var scale = Math.min(
+      gameState.window.width  / (gameState.map.width  + 25),
+      gameState.window.height / (gameState.map.height + 25)
+    );
+    stage.scale = new PIXI.Point(scale, scale);
+  }
 
   var lastGameState;
   return function output(gameState){
     if (lastGameState === gameState) return;
 
+    resize( gameState );
     hudContainer.setGameState( gameState );
+    boarderContainer.setGameState( gameState );
     obstaclesContainer.setObstacles( gameState.obstacles );
     monsterContainer.setMonster( gameState.monster );
     townspeopleContainer.setTownspeople( gameState.townspeople );
