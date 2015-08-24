@@ -343,12 +343,11 @@ function moveTownspeople(timeDelta, gameState){
         if (gameState.map.obstacles.some(function(obstacle){ return obstacle.contains(townsperson.x+dx*distance, townsperson.y+dy*distance); })) break;
       }
       if (distance >= distanceFromMonster) { // townsperson can see monster
-        var areaNearTownsperson = new PIXI.Circle(townsperson.x, townsperson.y, 70); //FIXME: magic number
         if (
           distanceFromMonster > 150 || //FIXME: magic number
-          gameState.townspeople.filter(function(townsperson){
-            return areaNearTownsperson.contains(townsperson.x, townsperson.y);
-          }).length >= 3
+          gameState.townspeople.filter(function(otherTownsperson){
+            return otherTownsperson.distanceFromMonster < townsperson.distanceFromMonster + 50; //FIXME: magic number
+          }).length >= Math.min(3, gameState.townspeople.length)
         )
           moveTo = {
             x: gameState.monster.x,
