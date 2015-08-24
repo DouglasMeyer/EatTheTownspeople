@@ -121,8 +121,7 @@ var input = (function(){
         'Left':  'Left',  'U+0041': 'Left',  // A
         'Down':  'Down',  'U+0053': 'Down',  // S
         'Right': 'Right', 'U+0044': 'Right', // D
-        'U+0020': 'Lunge', // Space
-        'Shift':  'Roar',
+        'U+0020': 'Roar', // Space
         'Enter': 'Start'
       };
 
@@ -217,7 +216,7 @@ function initGame(input, gameState){
       y = gameState.map.height * Math.random();
     }
     //FIXME: should I not modify gameState?
-    gameState.monster = { x: x, y: y, chewing: 0, roaring: 0, health: 100 };
+    gameState.monster = { x: x, y: y, chewing: 0, roaring: 0, roarCooldown: 0, health: 100 };
   }
 
   if (!gameState.townspeople){
@@ -303,6 +302,26 @@ function moveMonster(timeDelta, input, gameState){
     })
   });
 }
+function scareTownspeople(timeDelta, input, gameState){
+  var monster = gameState.monster;
+  if (!monster) return;
+  if (monster.roarCooldown){
+    var roarCooldown = monster.roarCooldown - timeDelta / 1000;
+    if (roarCooldown < 0) roarCooldown = 0;
+    return extend({}, gameState, {
+      monster: extend({}, monster, {
+        roarCooldown: roarCooldown
+      })
+    });
+  }
+  if (input.actions.indexOf('Roar') !== -1){
+    return extend({}, gameState, {
+      monster: extend({}, monster, {
+        roarCooldown: 10 //FIXME: magic number 10: roarCooldown
+      })
+    });
+  }
+}
 function eatTownspeople(timeDelta, gameState){
   var monster = gameState.monster;
   if (!monster) return;
@@ -323,7 +342,7 @@ function eatTownspeople(timeDelta, gameState){
   if (closestTownsperson && closestTownsperson.distanceFromMonster < 5){
     return extend({}, gameState, {
       monster: extend({}, monster, {
-        chewing: 5 //FIXME: magic number 10, monster's chewing time
+        chewing: 5 //FIXME: magic number 5, monster's chewing time
       }),
       townspeople: gameState.townspeople.filter(function(townsperson){
         return townsperson !== closestTownsperson
@@ -343,7 +362,12 @@ function moveTownspeople(timeDelta, gameState){
         if (gameState.map.obstacles.some(function(obstacle){ return obstacle.contains(townsperson.x+dx*distance, townsperson.y+dy*distance); })) break;
       }
       if (distance >= distanceFromMonster) { // townsperson can see monster
-        if (
+        if (gameState.monster.roarCooldown > 9){ //FIXME: magic number: roarCooldown - 1
+          moveTo = {
+            x: townsperson.x - dx * 10,
+            y: townsperson.y - dy * 10
+          };
+        } else if (
           distanceFromMonster > 150 || //FIXME: magic number
           gameState.townspeople.filter(function(otherTownsperson){
             return otherTownsperson.distanceFromMonster < townsperson.distanceFromMonster + 50; //FIXME: magic number
@@ -358,6 +382,11 @@ function moveTownspeople(timeDelta, gameState){
             x: townsperson.x - dx * 10,
             y: townsperson.y - dy * 10
           };
+      } else if (gameState.monster.roarCooldown > 9){ //FIXME: magic number: roarCooldown - 1
+        moveTo = {
+          x: gameState.monster.x,
+          y: gameState.monster.y
+        };
       }
     }
     if (!moveTo || (moveTo.x === townsperson.x && moveTo.y === townsperson.y)){
@@ -425,6 +454,7 @@ function update(timeDelta, input, gameState){
     eatTownspeople.bind(null, timeDelta),
     attackMonster.bind(null, timeDelta),
     moveMonster.bind(null, timeDelta, input),
+    scareTownspeople.bind(null, timeDelta, input),
     moveTownspeople.bind(null, timeDelta),
   ].reduce(function updateReduceChanges(gameState, f){ return f(gameState) || gameState; }, gameState);
 }
