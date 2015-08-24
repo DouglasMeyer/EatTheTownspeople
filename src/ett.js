@@ -100,7 +100,9 @@ var maps = [
     ]
   }
 ];
-var gameState = {};
+var gameState = {
+  // state: undefined, 'started', 'died', 'releaseStart', 'levelComplete', 'won'
+};
 
 tick(function gameTick(timeDelta){
   output( gameState = update(timeDelta, input.get(), gameState) );
@@ -157,20 +159,55 @@ function setWindowSize(input, gameState){
     input.window.width  === gameState.window.width &&
     input.window.height === gameState.window.height
   ) return;
+  var width = input.window.width,
+      height = input.window.height,
+      scale = Math.min(
+        width  / (gameState.map.width  + 25),
+        height / (gameState.map.height + 25)
+      );
   return extend({}, gameState, {
     window: {
-      width:  input.window.width,
-      height: input.window.height
+      width:  width,
+      height: height,
+      scale: scale
     }
   });
 }
 
 function initGame(input, gameState){
+  var gameStateChanged = false,
+      startPressed = input.actions.indexOf('Start') !== -1;
+  if (!gameState.state && startPressed){
+    gameState = extend({}, gameState, { state: 'started' });
+    gameStateChanged = true;
+  } else if (gameState.state === 'died' && startPressed){
+    gameState = extend({}, gameState, { state: 'releaseStart', map: undefined, townspeople: undefined });
+    gameStateChanged = true;
+  } else if (gameState.state === 'releaseStart' && !startPressed){
+    gameState = extend({}, gameState, { state: null });
+    gameStateChanged = true;
+  } else if (gameState.state === 'started' && gameState.townspeople.length === 0){
+    var mapIndex = maps.indexOf(gameState.map);
+    if (!maps[mapIndex+1]) return extend({}, gameState, { state: 'won' });
+    gameState = {
+      state: 'levelComplete',
+      map: maps[mapIndex+1],
+      townspeople: undefined
+    };
+    gameStateChanged = true;
+  } else if (gameState.state === 'levelComplete' && startPressed){
+    return extend({}, gameState, { state: 'started' });
+  } else if (gameState.state === 'won' && startPressed){
+    gameState = { state: 'releaseStart' };
+    gameStateChanged = true;
+  }
+
   if (!gameState.map){
-    //FIXME: should I not modify gameState?
-    gameState.map = maps[2];
+    gameState = extend({}, gameState, { map: maps[0] });
+    gameStateChanged = true;
+  }
 
-
+  if (!gameState.monster && gameState.state === 'started'){
     var x, y;
     while (
       !x ||
@@ -181,8 +218,9 @@ function initGame(input, gameState){
     }
     //FIXME: should I not modify gameState?
     gameState.monster = { x: x, y: y, chewing: 0, roaring: 0, health: 100 };
+  }
 
-
+  if (!gameState.townspeople){
     var townspeople = [],
         x,y;
     for (var i=0; i<10; i++){
@@ -202,6 +240,7 @@ function initGame(input, gameState){
       townspeople: townspeople
     });
   }
+  if (gameStateChanged) return gameState;
 }
 
 //NOTE: this could be optimized by not updating (every time) townspeople who are far away, or storing position separate from monster/townsperson
@@ -211,8 +250,8 @@ function updateDistances(gameState){
 
   var anyTownspersonUpdated = false,
       newTownspeople = gameState.townspeople.map(function(townsperson){
-        if (townspeopleDistances.get(townsperson)) return townsperson;
         if (!gameState.monster) return extend({}, townsperson, { distanceFromMonster: 1/0 });
+        if (townspeopleDistances.get(townsperson)) return townsperson;
         var distance = Math.pow(
           Math.pow(townsperson.x - gameState.monster.x, 2) +
           Math.pow(townsperson.y - gameState.monster.y, 2)
@@ -371,7 +410,7 @@ function attackMonster(timeDelta, gameState){
   if (numberOfAttackers === 0) return;
   var health = gameState.monster.health - numberOfAttackers * timeDelta / 100;
 
-  if (health <= 0) return extend({}, gameState, { monster: undefined });
+  if (health <= 0) return extend({}, gameState, { state: 'died', monster: undefined });
   return extend({}, gameState, {
     monster: extend({}, gameState.monster, {
       health: health
@@ -381,8 +420,8 @@ function attackMonster(timeDelta, gameState){
 
 function update(timeDelta, input, gameState){
   return [
-    setWindowSize.bind(null, input),
     initGame.bind(null, input),
+    setWindowSize.bind(null, input),
     updateDistances.bind(null),
     eatTownspeople.bind(null, timeDelta),
     attackMonster.bind(null, timeDelta),
@@ -412,17 +451,28 @@ var output = (function outputInit(){
 
   function MonsterContainer(){
     PIXI.Graphics.call(this);
-    var color = 0x448800;
-    this.lineStyle( 1, color );
-    this.beginFill( color, 0.7 );
-    this.drawCircle( 0, 0, 5 );
+    this.isMonsterDrawn = false;
   }
   MonsterContainer.prototype = Object.create(PIXI.Graphics.prototype);
   MonsterContainer.prototype.constructor = MonsterContainer;
-  MonsterContainer.prototype.setMonster = function setMonster(monster){
-    if (!monster) return;
-    this.x = monster.x;
-    this.y = monster.y;
+  MonsterContainer.prototype.setGameState = function setGameState(gameState){
+    if (gameState.state === 'died') return;
+    if (!gameState.monster){
+      if (this.isMonsterDrawn){
+        this.isMonsterDrawn = false;
+        this.clear();
+      }
+      return;
+    }
+    if (!this.isMonsterDrawn){
+      this.isMonsterDrawn = true;
+      var color = 0x448800;
+      this.lineStyle( 1, color );
+      this.beginFill( color, 0.7 );
+      this.drawCircle( 0, 0, 5 );
+    }
+    this.x = gameState.monster.x;
+    this.y = gameState.monster.y;
   };
 
 
@@ -457,14 +507,21 @@ var output = (function outputInit(){
 
   function HudContainer(){
     PIXI.Container.call(this);
-    this.addChild( this.status = new PIXI.Text('Chewing: \nHealth: ', { font: '10px Arial', fill: 0xDDDDDD }) );
-this.addChild( window.log = new PIXI.Text('', { font: '10px Arial', fill: 0xDDDDDD }) );
-window.log.position = { x: 0, y: 100 };
+    this.addChild( this.status = new PIXI.Text('', { font: '10px Arial', fill: 0xDDDDDD }) );
+
+    this.introduction = document.getElementById('introduction');
+    this.levelComplete = document.getElementById('levelComplete');
+    this.gameOver = document.getElementById('gameOver');
+    this.won = document.getElementById('won');
   }
   HudContainer.prototype = Object.create(PIXI.Container.prototype);
   HudContainer.prototype.constructor = HudContainer;
   HudContainer.prototype.setGameState = function setGameState(gameState){
-    if (gameState.monster){
+    this.introduction.classList.toggle('hide', gameState.state);
+    this.gameOver.classList.toggle('hide', gameState.state !== 'died');
+    this.levelComplete.classList.toggle('hide', gameState.state !== 'levelComplete');
+    this.won.classList.toggle('hide', gameState.state !== 'won');
+    if (gameState.state === 'started' && gameState.monster){
       this.status.text =
         'Chewing: '+Math.ceil(gameState.monster.chewing)+'\n'+
         'Health: '+Math.ceil(gameState.monster.health);
@@ -491,16 +548,12 @@ window.log.position = { x: 0, y: 100 };
 
   var lastMap, lastWindow;
   function resize(gameState){
-    if (gameState.map === lastMap && gameState.window === lastWindow) return;
+    if (!gameState.window || gameState.map === lastMap && gameState.window === lastWindow) return;
     lastMap = gameState.map;
     lastWindow = gameState.window;
 
     renderer.resize(gameState.window.width, gameState.window.height);
-    var scale = Math.min(
-      gameState.window.width  / (gameState.map.width  + 25),
-      gameState.window.height / (gameState.map.height + 25)
-    );
-    stage.scale = new PIXI.Point(scale, scale);
+    stage.scale = new PIXI.Point(gameState.window.scale, gameState.window.scale);
   }
 
   var lastGameState;
@@ -511,7 +564,7 @@ window.log.position = { x: 0, y: 100 };
     hudContainer.setGameState( gameState );
     boarderContainer.setGameState( gameState );
     obstaclesContainer.setObstacles( gameState.map.obstacles );
-    monsterContainer.setMonster( gameState.monster );
+    monsterContainer.setGameState( gameState );
     townspeopleContainer.setTownspeople( gameState.townspeople );
 
     if (gameState.monster){

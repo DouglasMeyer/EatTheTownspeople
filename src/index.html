@@ -6,11 +6,72 @@
     <style>
       * { margin: 0; padding: 0; }
       html, body { height: 100%; width: 100%; }
-      body { overflow: hidden; }
+      body {
+        overflow: hidden;
+        font-size: 18pt;
+        font-family: sans-serif;
+      }
+
+      #introduction, #levelComplete, #gameOver, #won {
+        position: absolute;
+        top: 5rem;
+        background-color: rgba(0, 0, 0, 0.77);
+        color: #CCC;
+        border: 2px solid #CCC;
+        padding: 1rem;
+      }
+      #introduction {
+        left: 50%;
+        width: 70%;
+        margin-left: -35%;
+      }
+      p { margin-top: 1rem; }
+      #levelComplete, #gameOver, #won {
+        left: 50%;
+        width: 25%;
+        margin-left: -12.5%;
+      }
+      .hide {
+        display: none;
+      }
     </style>
     <script src="/lib/pixi-3.0.7.min.js"></script>
   </head>
   <body>
+    <div id="introduction">
+      <h1>Eat the Townspeople</h1>
+      <p>
+        You are a monster in a medieval town, so what do you do? Eat the
+        townspeople.
+      </p>
+      <p>
+        Townspeople will flee when they see a monster, but if they form a mob
+        they can kill it. Try to pick them off one at a time.
+      </p>
+      <p>
+        <h3>Controls</h3>
+        <kbd>wasd</kbd> or arrow keys<br />
+        <kbd>Enter</kbd> to start
+      </p>
+    </div>
+    <div id="levelComplete" class="hide">
+      <h1>Level Complete</h1>
+      <p>
+        <kbd>Enter</kbd> to start
+      </p>
+    </div>
+    <div id="gameOver" class="hide">
+      <h1>Game Over</h1>
+      <p>
+        <kbd>Enter</kbd> to restart
+      </p>
+    </div>
+    <div id="won" class="hide">
+      <h1>You Won</h1>
+      <p>
+        <kbd>Enter</kbd> to restart
+      </p>
+    </div>
     <script src="/ett.js"></script>
   </body>
 </html>
