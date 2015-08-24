@@ -31,13 +31,13 @@ var tick = (function(){
 
 
 var initialGameState = {
-  monster: { x: 5, y: 5, chewing: 0, roaring: 0, health: 100 },
+  monster: { x: 200, y: 150, chewing: 0, roaring: 0, health: 100 },
   // deadMonster: { x: 5, y: 5 },
   townspeople: [
     //{ x: 50, y: 50, distanceFromMonster: 50 },//, moveTo: { x: 0, y: 0 } }
   ],
   obstacles: [
-    new PIXI.Rectangle(20, 20, 100, 20), // x y w h
+  //  new PIXI.Rectangle(20, 20, 100, 20), // x y w h
   ],
   map: {
     width: 400,
@@ -110,25 +110,27 @@ function setWindowSize(input, gameState){
 }
 
 function initGame(input, gameState){
-  if (gameState.townspeople.length) return;
-  var townspeople = [],
-      x,y;
-  for (var i=0; i<10; i++){
-    while (!x || !y || gameState.obstacles.some(function(obstacle){
-      return obstacle.contains(x,y);
-    })){
-      x = Math.floor(Math.random() * gameState.map.width);
-      y = Math.floor(Math.random() * gameState.map.height);
+  if (!gameState.obstacles.length){
+  } else if (!gameState.townspeople.length){
+    var townspeople = [],
+        x,y;
+    for (var i=0; i<10; i++){
+      while (!x || !y || gameState.obstacles.some(function(obstacle){
+        return obstacle.contains(x,y);
+      })){
+        x = Math.floor(Math.random() * gameState.map.width);
+        y = Math.floor(Math.random() * gameState.map.height);
+      }
+      townspeople.push({
+        x: x,
+        y: y
+      });
+      y = x = undefined;
     }
-    townspeople.push({
-      x: x,
-      y: y
+    return extend({}, gameState, {
+      townspeople: townspeople
     });
-    y = x = undefined;
   }
-  return extend({}, gameState, {
-    townspeople: townspeople
-  });
 }
 
 //NOTE: this could be optimized by not updating (every time) townspeople who are far away, or storing position separate from monster/townsperson
