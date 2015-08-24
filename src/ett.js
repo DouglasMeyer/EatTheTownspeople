@@ -223,17 +223,32 @@ function eatTownspeople(timeDelta, gameState){
 function moveTownspeople(timeDelta, gameState){
   if (!gameState.townspeople.length) return;
   var newTownspeople = gameState.townspeople.map(function(townsperson){
-    var moveTo = townsperson.moveTo;
-    if (townsperson.distanceFromMonster < 200){
-      var dx = (gameState.monster.x - townsperson.x) / townsperson.distanceFromMonster,
-          dy = (gameState.monster.y - townsperson.y) / townsperson.distanceFromMonster;
-      for (var distance = 1; distance < townsperson.distanceFromMonster; distance++){
+    var moveTo = townsperson.moveTo,
+        distanceFromMonster = townsperson.distanceFromMonster;
+    if (distanceFromMonster < 200){ //FIXME: magic number
+      var dx = (gameState.monster.x - townsperson.x) / distanceFromMonster,
+          dy = (gameState.monster.y - townsperson.y) / distanceFromMonster;
+      for (var distance = 1; distance < distanceFromMonster; distance++){
         if (gameState.obstacles.some(function(obstacle){ return obstacle.contains(townsperson.x+dx*distance, townsperson.y+dy*distance); })) break;
       }
-      if (distance >= townsperson.distanceFromMonster) moveTo = {
-        x: gameState.monster.x,
-        y: gameState.monster.y
-      };
+      if (distance >= distanceFromMonster) { // townsperson can see monster
+        var areaNearTownsperson = new PIXI.Circle(townsperson.x, townsperson.y, 70); //FIXME: magic number
+        if (
+          distanceFromMonster > 150 || //FIXME: magic number
+          gameState.townspeople.filter(function(townsperson){
+            return areaNearTownsperson.contains(townsperson.x, townsperson.y);
+          }).length >= 3
+        )
+          moveTo = {
+            x: gameState.monster.x,
+            y: gameState.monster.y
+          };
+        else
+          moveTo = {
+            x: townsperson.x - dx * 10,
+            y: townsperson.y - dy * 10
+          };
+      }
     }
     if (!moveTo || (moveTo.x === townsperson.x && moveTo.y === townsperson.y)){
       moveTo = {
@@ -249,9 +264,16 @@ function moveTownspeople(timeDelta, gameState){
       dx /= distance / timeDelta * 30;
       dy /= distance / timeDelta * 30;
     }
-    if (gameState.obstacles.some(function(obstacle){
-      return obstacle.contains(townsperson.x+dx,townsperson.y+dy);
-    })) {
+    var x = townsperson.x + dx,
+        y = townsperson.y + dy;
+    if (
+      x < 0 || y < 0 ||
+      x >= gameState.map.width ||
+      y >= gameState.map.height ||
+      gameState.obstacles.some(function(obstacle){
+        return obstacle.contains(townsperson.x+dx,townsperson.y+dy);
+      })
+    ) {
       moveTo = undefined;
       if (moveTo === townsperson.moveTo) return townsperson;
       return extend({}, townsperson, {
