@@ -27,25 +27,80 @@ var tick = (function(){
   };
 })();
 
-
-
-
-var initialGameState = {
-  monster: { x: 200, y: 150, chewing: 0, roaring: 0, health: 100 },
-  // deadMonster: { x: 5, y: 5 },
-  townspeople: [
-    //{ x: 50, y: 50, distanceFromMonster: 50 },//, moveTo: { x: 0, y: 0 } }
-  ],
-  obstacles: [
-  //  new PIXI.Rectangle(20, 20, 100, 20), // x y w h
-  ],
-  map: {
-    width: 400,
-    height: 300
-  },
-  window: {}
+function Line(m,b){
+  this.m = m;
+  this.b = b;
+}
+Line.prototype.y = function y(x){
+  return this.m*x+this.b;
 };
-var gameState = initialGameState;
+
+
+
+
+var maps = [
+  {
+    width: 400,
+    height: 300,
+    obstacles: [
+      new PIXI.Rectangle( 20,  45, 50, 25),
+      new PIXI.Rectangle( 90,  40, 35, 30),
+      new PIXI.Rectangle(140,  50, 50, 20),
+      new PIXI.Rectangle(220,  30, 50, 40),
+      new PIXI.Rectangle(300,  50, 20, 20),
+
+      new PIXI.Rectangle(110, 100, 40, 20),
+      new PIXI.Rectangle(160, 100, 30, 40),
+      new PIXI.Rectangle(220, 100, 30, 30),
+
+      new PIXI.Rectangle(160, 150, 30, 50),
+      new PIXI.Rectangle(220, 140, 30, 30),
+
+      new PIXI.Rectangle(220, 190, 40, 40)
+    ]
+  }, {
+    width: 400,
+    height: 300,
+    obstacles: [
+      new PIXI.Rectangle(  0,   0, 100, 20),
+      new PIXI.Rectangle(100,   0,  50, 40),
+      new PIXI.Rectangle(150,   0,  80, 30),
+      new PIXI.Rectangle(230,   0, 120, 20),
+      new PIXI.Rectangle(350,   0,  50, 50),
+
+      new PIXI.Rectangle(370,  50,  30, 80),
+      new PIXI.Rectangle(380, 130,  20, 50),
+      new PIXI.Rectangle(330, 180,  70, 30),
+      new PIXI.Rectangle(350, 210,  50, 30),
+      new PIXI.Rectangle(380, 240,  20, 60),
+
+      new PIXI.Rectangle(320, 280,  60, 20),
+      new PIXI.Rectangle(280, 260,  40, 40),
+      new PIXI.Rectangle(200, 280,  80, 20),
+      new PIXI.Rectangle(130, 270,  70, 30),
+      new PIXI.Rectangle( 80, 280,  50, 20),
+      new PIXI.Rectangle(  0, 280,  80, 20),
+
+      new PIXI.Rectangle(  0, 230,  40, 50),
+      new PIXI.Rectangle(  0, 150,  30, 80),
+      new PIXI.Rectangle(  0, 110,  80, 40),
+      new PIXI.Rectangle(  0,  20,  20, 90),
+
+      new PIXI.Rectangle(120, 100,  30, 70),
+      new PIXI.Rectangle(220,  50,  50, 50),
+      new PIXI.Rectangle(180, 160,  80, 80)
+    ]
+  }, {
+    width: 800,
+    height: 100,
+    obstacles: [
+      new PIXI.Rectangle( 30, 30, 300, 20 ),
+      new PIXI.Rectangle(300, 40, 200, 30 ),
+      new PIXI.Rectangle(480, 20, 200, 60 ),
+    ]
+  }
+];
+var gameState = {};
 
 tick(function gameTick(timeDelta){
   output( gameState = update(timeDelta, input.get(), gameState) );
@@ -98,6 +153,7 @@ var input = (function(){
 
 function setWindowSize(input, gameState){
   if (
+    gameState.window &&
     input.window.width  === gameState.window.width &&
     input.window.height === gameState.window.height
   ) return;
@@ -110,12 +166,27 @@ function setWindowSize(input, gameState){
 }
 
 function initGame(input, gameState){
-  if (!gameState.obstacles.length){
-  } else if (!gameState.townspeople.length){
+  if (!gameState.map){
+    //FIXME: should I not modify gameState?
+    gameState.map = maps[2];
+
+
+    var x, y;
+    while (
+      !x ||
+      gameState.map.obstacles.some(function(o){ return o.contains(x,y); })
+    ){
+      x = gameState.map.width  * Math.random();
+      y = gameState.map.height * Math.random();
+    }
+    //FIXME: should I not modify gameState?
+    gameState.monster = { x: x, y: y, chewing: 0, roaring: 0, health: 100 };
+
+
     var townspeople = [],
         x,y;
     for (var i=0; i<10; i++){
-      while (!x || !y || gameState.obstacles.some(function(obstacle){
+      while (!x || !y || gameState.map.obstacles.some(function(obstacle){
         return obstacle.contains(x,y);
       })){
         x = Math.floor(Math.random() * gameState.map.width);
@@ -182,7 +253,7 @@ function moveMonster(timeDelta, input, gameState){
     x >= gameState.map.width ||
     y >= gameState.map.height
   ) return;
-  if (gameState.obstacles.some(function(obstacle){
+  if (gameState.map.obstacles.some(function(obstacle){
     return obstacle.contains(x,y);
   })) return;
 
@@ -230,7 +301,7 @@ function moveTownspeople(timeDelta, gameState){
       var dx = (gameState.monster.x - townsperson.x) / distanceFromMonster,
           dy = (gameState.monster.y - townsperson.y) / distanceFromMonster;
       for (var distance = 1; distance < distanceFromMonster; distance++){
-        if (gameState.obstacles.some(function(obstacle){ return obstacle.contains(townsperson.x+dx*distance, townsperson.y+dy*distance); })) break;
+        if (gameState.map.obstacles.some(function(obstacle){ return obstacle.contains(townsperson.x+dx*distance, townsperson.y+dy*distance); })) break;
       }
       if (distance >= distanceFromMonster) { // townsperson can see monster
         var areaNearTownsperson = new PIXI.Circle(townsperson.x, townsperson.y, 70); //FIXME: magic number
@@ -271,7 +342,7 @@ function moveTownspeople(timeDelta, gameState){
       x < 0 || y < 0 ||
       x >= gameState.map.width ||
       y >= gameState.map.height ||
-      gameState.obstacles.some(function(obstacle){
+      gameState.map.obstacles.some(function(obstacle){
         return obstacle.contains(townsperson.x+dx,townsperson.y+dy);
       })
     ) {
@@ -395,8 +466,8 @@ window.log.position = { x: 0, y: 100 };
   HudContainer.prototype.setGameState = function setGameState(gameState){
     if (gameState.monster){
       this.status.text =
-        'Chewing: '+gameState.monster.chewing+'\n'+
-        'Health: '+gameState.monster.health;
+        'Chewing: '+Math.ceil(gameState.monster.chewing)+'\n'+
+        'Health: '+Math.ceil(gameState.monster.health);
     } else {
       this.status.text = '';
     }
@@ -439,7 +510,7 @@ window.log.position = { x: 0, y: 100 };
     resize( gameState );
     hudContainer.setGameState( gameState );
     boarderContainer.setGameState( gameState );
-    obstaclesContainer.setObstacles( gameState.obstacles );
+    obstaclesContainer.setObstacles( gameState.map.obstacles );
     monsterContainer.setMonster( gameState.monster );
     townspeopleContainer.setTownspeople( gameState.townspeople );
 
