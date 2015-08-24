@@ -31,7 +31,8 @@ var tick = (function(){
 
 
 var initialGameState = {
-  monster: { x: 5, y: 5, chewing: 0, roaring: 0 },
+  monster: { x: 5, y: 5, chewing: 0, roaring: 0, health: 100 },
+  // deadMonster: { x: 5, y: 5 },
   townspeople: [
     //{ x: 50, y: 50, distanceFromMonster: 50 },//, moveTo: { x: 0, y: 0 } }
   ],
@@ -138,25 +139,22 @@ function updateDistances(gameState){
   var anyTownspersonUpdated = false,
       newTownspeople = gameState.townspeople.map(function(townsperson){
         if (townspeopleDistances.get(townsperson)) return townsperson;
+        if (!gameState.monster) return extend({}, townsperson, { distanceFromMonster: 1/0 });
         var distance = Math.pow(
           Math.pow(townsperson.x - gameState.monster.x, 2) +
           Math.pow(townsperson.y - gameState.monster.y, 2)
         , 0.5);
         townspeopleDistances.set(townsperson, distance);
         anyTownspersonUpdated = true;
-        return extend({}, townsperson, {
-          distanceFromMonster: distance
-        });
+        return extend({}, townsperson, { distanceFromMonster: distance });
       });
   if (!anyTownspersonUpdated) return;
-  return extend({}, gameState, {
-    townspeople: newTownspeople
-  });
+  return extend({}, gameState, { townspeople: newTownspeople });
 }
 
 var speedLimit = 20; //FIXME: magic number, monster movement speed
 function moveMonster(timeDelta, input, gameState){
-  if (!input.actions.length) return;
+  if (!input.actions.length || !gameState.monster) return;
   var movingUp    = input.actions.indexOf('Up'   ) !== -1,
       movingDown  = input.actions.indexOf('Down' ) !== -1,
       movingLeft  = input.actions.indexOf('Left' ) !== -1,
@@ -195,6 +193,7 @@ function moveMonster(timeDelta, input, gameState){
 }
 function eatTownspeople(timeDelta, gameState){
   var monster = gameState.monster;
+  if (!monster) return;
   if (monster.chewing) {
     var chewing = monster.chewing - timeDelta / 1000;
     if (chewing < 0) chewing = 0;
@@ -225,7 +224,7 @@ function moveTownspeople(timeDelta, gameState){
   var newTownspeople = gameState.townspeople.map(function(townsperson){
     var moveTo = townsperson.moveTo,
         distanceFromMonster = townsperson.distanceFromMonster;
-    if (distanceFromMonster < 200){ //FIXME: magic number
+    if (gameState.monster && distanceFromMonster < 200){ //FIXME: magic number
       var dx = (gameState.monster.x - townsperson.x) / distanceFromMonster,
           dy = (gameState.monster.y - townsperson.y) / distanceFromMonster;
       for (var distance = 1; distance < distanceFromMonster; distance++){
@@ -292,6 +291,19 @@ function moveTownspeople(timeDelta, gameState){
 }
 
 function attackMonster(timeDelta, gameState){
+  if (!gameState.monster) return;
+  var numberOfAttackers = gameState.townspeople.filter(function(townsperson){
+    return townsperson.distanceFromMonster <= 5; //FIXME: magic number, monster's size + townsperson's size
+  }).length;
+  if (numberOfAttackers === 0) return;
+  var health = gameState.monster.health - numberOfAttackers * timeDelta / 100;
+
+  if (health <= 0) return extend({}, gameState, { monster: undefined });
+  return extend({}, gameState, {
+    monster: extend({}, gameState.monster, {
+      health: health
+    })
+  });
 }
 
 function update(timeDelta, input, gameState){
@@ -335,6 +347,7 @@ var output = (function outputInit(){
   MonsterContainer.prototype = Object.create(PIXI.Graphics.prototype);
   MonsterContainer.prototype.constructor = MonsterContainer;
   MonsterContainer.prototype.setMonster = function setMonster(monster){
+    if (!monster) return;
     this.x = monster.x;
     this.y = monster.y;
   };
@@ -371,14 +384,20 @@ var output = (function outputInit(){
 
   function HudContainer(){
     PIXI.Container.call(this);
-    this.addChild( this.chewing = new PIXI.Text('Chewing: 0', { font: '10px Arial', fill: 0xDDDDDD }) );
-//this.addChild( window.log = new PIXI.Text('log', { font: '10px Arial', fill: 0xDDDDDD }) );
-//window.log.position = { x: 0, y: 100 };
+    this.addChild( this.status = new PIXI.Text('Chewing: \nHealth: ', { font: '10px Arial', fill: 0xDDDDDD }) );
+this.addChild( window.log = new PIXI.Text('', { font: '10px Arial', fill: 0xDDDDDD }) );
+window.log.position = { x: 0, y: 100 };
   }
   HudContainer.prototype = Object.create(PIXI.Container.prototype);
   HudContainer.prototype.constructor = HudContainer;
   HudContainer.prototype.setGameState = function setGameState(gameState){
-    this.chewing.text = 'Chewing: '+gameState.monster.chewing;
+    if (gameState.monster){
+      this.status.text =
+        'Chewing: '+gameState.monster.chewing+'\n'+
+        'Health: '+gameState.monster.health;
+    } else {
+      this.status.text = '';
+    }
   };
 
 
@@ -422,8 +441,13 @@ var output = (function outputInit(){
     monsterContainer.setMonster( gameState.monster );
     townspeopleContainer.setTownspeople( gameState.townspeople );
 
-    world.x = renderer.width  / stage.scale.x / 2 - gameState.monster.x;
-    world.y = renderer.height / stage.scale.y / 2 - gameState.monster.y;
+    if (gameState.monster){
+      world.x = renderer.width  / stage.scale.x / 2 - gameState.monster.x;
+      world.y = renderer.height / stage.scale.y / 2 - gameState.monster.y;
+    } else {
+      world.x = renderer.width  / stage.scale.x / 2 - gameState.map.width  / 2;
+      world.y = renderer.height / stage.scale.y / 2 - gameState.map.height / 2;
+    }
 
     renderer.render(stage);
     lastGameState = gameState;
