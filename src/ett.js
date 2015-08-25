@@ -532,7 +532,6 @@ var output = (function outputInit(){
 
   function HudContainer(){
     PIXI.Container.call(this);
-    this.addChild( this.status = new PIXI.Text('', { font: '10px Arial', fill: 0xDDDDDD }) );
     this.addChild( this.chewingBar = new PIXI.Graphics );
     this.addChild( this.roarCooldownBar = new PIXI.Graphics );
 
@@ -548,12 +547,7 @@ var output = (function outputInit(){
     this.gameOver.classList.toggle('hide', gameState.state !== 'died');
     this.levelComplete.classList.toggle('hide', gameState.state !== 'levelComplete');
     this.won.classList.toggle('hide', gameState.state !== 'won');
-    if (gameState.state === 'started' && gameState.monster){
-      this.status.text =
-        'Health: '+Math.ceil(gameState.monster.health);
-    } else {
-      this.status.text = '';
-    }
+
     var windowWidth = gameState.window.width / gameState.window.scale,
         windowHeight = gameState.window.height / gameState.window.scale;
     this.chewingBar.clear();

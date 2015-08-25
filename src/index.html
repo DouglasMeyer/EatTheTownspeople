@@ -12,12 +12,13 @@
         font-family: sans-serif;
       }
 
+      h1, h3 { color: #CCC; }
       #introduction, #levelComplete, #gameOver, #won {
         position: absolute;
-        top: 5rem;
+        top: 3rem;
         background-color: rgba(0, 0, 0, 0.77);
-        color: #CCC;
-        border: 2px solid #CCC;
+        color: #888;
+        border: 2px solid #888;
         padding: 1rem;
       }
       #introduction {
@@ -26,6 +27,7 @@
         margin-left: -35%;
       }
       p { margin-top: 1rem; }
+      kbd { text-decoration: underline; }
       #levelComplete, #gameOver, #won {
         left: 50%;
         width: 25%;
@@ -34,6 +36,10 @@
       .hide {
         display: none;
       }
+      .monster{ color: #00C800; }
+      .townspeople{ color: #CCCCCC; }
+      .eat{ color: #DDDD00; }
+      .roar{ color: #FF0000; }
     </style>
     <script src="/lib/pixi-3.0.7.min.js"></script>
   </head>
@@ -41,18 +47,20 @@
     <div id="introduction">
       <h1>Eat the Townspeople</h1>
       <p>
-        You are a monster in a medieval town, so what do you do? Eat the
-        townspeople.
+        You are a <em class="monster">monster</em> in a medieval town, so what
+        do you do? <em class="eat">Eat</em> and <em class="roar">scare</em> the
+        <em class="townspeople">townspeople</em>.
       </p>
       <p>
         Townspeople will flee when they see a monster, but if they form a mob
         they can kill it. Try to pick them off one at a time. If you get
-        surrounded, you can roar to scare them off; but everyone will know where you are.
+        surrounded, you can roar to scare them off; but everyone will know where
+        you are.
       </p>
       <p>
         <h3>Controls</h3>
         <kbd>wasd</kbd> or arrow keys<br />
-        <kbd>Space</kbd> to roar<br />
+        <kbd>Space</kbd> to <em class="roar">roar</em><br />
         <kbd>Enter</kbd> to start
       </p>
     </div>
