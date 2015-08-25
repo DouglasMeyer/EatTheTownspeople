@@ -126,6 +126,7 @@ var input = (function(){
       };
 
   function onKeyDown(e){
+    e.preventDefault();
     var key = keyMappings[e.keyIdentifier];
     if (actions.indexOf(key) === -1)
       actions.push(key);
@@ -141,6 +142,9 @@ var input = (function(){
   addEventListener('resize', function(){
     window.width  = document.body.clientWidth;
     window.height = document.body.clientHeight;
+  });
+  addEventListener('mousedown', function(e){
+    this.focus();
   });
 
   return {
