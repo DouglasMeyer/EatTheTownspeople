@@ -480,26 +480,22 @@ var output = (function outputInit(){
 
   function MonsterContainer(){
     PIXI.Graphics.call(this);
-    this.isMonsterDrawn = false;
   }
   MonsterContainer.prototype = Object.create(PIXI.Graphics.prototype);
   MonsterContainer.prototype.constructor = MonsterContainer;
   MonsterContainer.prototype.setGameState = function setGameState(gameState){
     if (gameState.state === 'died') return;
     if (!gameState.monster){
-      if (this.isMonsterDrawn){
-        this.isMonsterDrawn = false;
-        this.clear();
-      }
+      this.clear();
       return;
     }
-    if (!this.isMonsterDrawn){
-      this.isMonsterDrawn = true;
-      var color = 0x448800;
-      this.lineStyle( 1, color );
-      this.beginFill( color, 0.7 );
-      this.drawCircle( 0, 0, 5 );
-    }
+    this.clear();
+    var health = Math.floor(gameState.monster.health);
+    var color = 0x010000*(255-Math.floor(health/100*255))+0x000100*(health*2);
+    this.lineStyle( 1, color );
+    this.beginFill( color, 0.7 );
+    this.drawCircle( 0, 0, 5 );
+
     this.x = gameState.monster.x;
     this.y = gameState.monster.y;
   };
@@ -537,6 +533,8 @@ var output = (function outputInit(){
   function HudContainer(){
     PIXI.Container.call(this);
     this.addChild( this.status = new PIXI.Text('', { font: '10px Arial', fill: 0xDDDDDD }) );
+    this.addChild( this.chewingBar = new PIXI.Graphics );
+    this.addChild( this.roarCooldownBar = new PIXI.Graphics );
 
     this.introduction = document.getElementById('introduction');
     this.levelComplete = document.getElementById('levelComplete');
@@ -552,10 +550,30 @@ var output = (function outputInit(){
     this.won.classList.toggle('hide', gameState.state !== 'won');
     if (gameState.state === 'started' && gameState.monster){
       this.status.text =
-        'Chewing: '+Math.ceil(gameState.monster.chewing)+'\n'+
         'Health: '+Math.ceil(gameState.monster.health);
     } else {
       this.status.text = '';
+    }
+    var windowWidth = gameState.window.width / gameState.window.scale,
+        windowHeight = gameState.window.height / gameState.window.scale;
+    this.chewingBar.clear();
+    if (gameState.state === 'started' && gameState.monster && gameState.monster.chewing){
+      this.chewingBar.beginFill( 0xDDDD00, 0.5 );
+      var chewProgress = 100*gameState.monster.chewing/5;
+      this.chewingBar.drawRect( 0, windowHeight - chewProgress, 20, chewProgress );
+      this.chewingBar.endFill();
+      this.chewingBar.lineStyle( 1, 0x888888, 1 );
+      this.chewingBar.drawRect( 0, windowHeight-100, 20, 100 );
+      this.chewingBar.lineStyle( 0 );
+    }
+    this.roarCooldownBar.clear();
+    if (gameState.state === 'started' && gameState.monster && gameState.monster.roarCooldown){
+      this.roarCooldownBar.beginFill( 0xFF0000, 0.5 );
+      var chewProgress = 100*gameState.monster.roarCooldown/10;
+      this.roarCooldownBar.drawRect( windowWidth - 21, windowHeight - chewProgress, 20, chewProgress );
+      this.roarCooldownBar.endFill();
+      this.roarCooldownBar.lineStyle( 1, 0x888888, 1 );
+      this.roarCooldownBar.drawRect( windowWidth - 21, windowHeight-100, 20, 100 );
     }
   };
 
